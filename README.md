@@ -42,7 +42,7 @@ The RAG systems are evaluated on the following four dimensions:
 ### Installation
 
 ```bash
-git clone https://github.com/ngocnhq/JCrRAG.git
+git clone  https://github.com/ducalt/jcrrageval.git
 cd JCrRAG
 pip install -r requirements.txt
 ```
@@ -143,6 +143,4 @@ _Note: The 'Average' columns show the average score across all three complexity 
 
 Evaluation via vLLM is limited to models currently supported by vLLM. You can verify compatibility at [vLLM Supported Models](https://docs.vllm.ai/en/latest/models/supported_models.html). For models not supported by vLLM, please load them directly from Hugging Face. Additionally, for newly released models such as Qwen3 (as of May 2025), ensure you update your vLLM library to the latest version to support these models.
 
-```
 
-```
