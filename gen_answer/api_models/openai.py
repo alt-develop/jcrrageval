@@ -67,7 +67,7 @@ def gen_answer(
         
     generator = RAGReponseGenerator(
         model_name=model_name,
-        batch=True,
+        batch=False,
         generation_params={
             "temperature": temperature,
         },
@@ -79,6 +79,7 @@ def gen_answer(
     
     rag_df = pd.DataFrame(inputs)
     print(rag_df)
+    rag_df["id"] = rag_df["id"].astype(str)
     rag_dataset = datasets.Dataset.from_pandas(rag_df)
     
     rag_response_dataset = generator(rag_dataset, working_dir="../.curator")

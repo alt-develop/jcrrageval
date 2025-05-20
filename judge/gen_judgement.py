@@ -82,11 +82,11 @@ def auto_evaluate(model, benchmark_name):
 
 def evaluate_models(judger, model, benchmark_name, rag_scale=5):
     data = read_json(f"../data/{benchmark_name}.json")
-    data_by_id = {item['id']: item for item in data}
+    data_by_id = {str(item['id']): item for item in data}
     
     task_index_map = defaultdict(list)
     for id, sample in data_by_id.items():
-        task_index_map[sample["task"]].append(id)
+        task_index_map[sample["task"]].append(str(id))
 
     model_name = get_model_name(model)
     model_answer_file = (
@@ -96,7 +96,7 @@ def evaluate_models(judger, model, benchmark_name, rag_scale=5):
         print(f"Model answer file not found for {model_name}. Skipping.")
         return None
     response = read_json(model_answer_file)
-    response_by_id = {item['id']: item for item in response}
+    response_by_id = {str(item['id']): item for item in response}
 
     os.makedirs(f"model_judgement/{benchmark_name}", exist_ok=True)
     os.makedirs(f"auto_metrics/{benchmark_name}", exist_ok=True)
