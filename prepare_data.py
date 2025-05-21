@@ -1,86 +1,113 @@
 import argparse
-import json
 import os
 import pandas as pd
-import numpy as np
+from datasets import load_dataset
 
-def filter_too_long(context, max_length):
-    # df = df[df["context"].apply(lambda x: len(x) <= max_length)]
+
+def filter_context_length(context: str, max_length: int = 20000) -> str:
+    """Truncate context to first 4 lines if exceeds length limit."""
     if len(context) > max_length:
-        context = context.split("\n")
-        context = context[:4]
-        context = "\n".join(context)
+        return "\n".join(context.split("\n")[:4])
     return context
 
 
-def prepare_data(df: pd.DataFrame, context_col, question_col, answer_col, max_samples, task):
-    # filter too long context
-    max_length = 20000
-    # df = filter_too_long(df, max_length).reset_index(drop=True)
-    df[context_col] = df[context_col].apply(lambda x: filter_too_long(x, max_length))
-    
-    df = df[:max_samples]
-    df = df.reset_index(drop=True)
-    
+def process_sheet(df: pd.DataFrame, max_samples: int) -> pd.DataFrame:
+    """Process Excel sheet data."""
+    # Normalize column names and validate
+    df.columns = df.columns.str.lower()
+    required_cols = {"context", "question", "answer"}
+
+    if not required_cols.issubset(df.columns):
+        missing = required_cols - set(df.columns)
+        raise ValueError(f"Missing columns: {', '.join(missing)}")
+
+    # Select relevant columns and clean data
+    df = df[["context", "question", "answer"]].copy()
+    df["context"] = df["context"].astype(str)
+    df["context"] = df["context"].apply(filter_context_length)
+
+    df["task"] = "rag"
     df["input"] = df.apply(
-        lambda x: f"質問: {x[question_col]}\n 段落: {x[context_col]}", axis=1
+        lambda x: f"質問: {x['question']}\n 段落: {x['context']}", axis=1
+    )
+    df.rename(
+        columns={
+            "answer": "output",
+        },
+        inplace=True,
     )
 
-    df["task"] = task
-    if "id" not in df.columns:
-        df["id"] = df.index + 1
-    df = df.rename(columns={answer_col: "output"})
-    
-    df = df[["task", "id", "input", "output", 'question', 'context']]
-    df = df.drop_duplicates(subset=["id"])
-    # df = df[['id', 'instruction', 'input', 'output']]
-    
-    print(f"Total samples: {len(df)}")
+    # Apply sampling and deduplication
+    return df.head(max_samples).drop_duplicates().reset_index(drop=True)
+
+
+def read_dataset(
+    dataset_name: str = "ducalt/jcrrag", split: str = "train"
+) -> pd.DataFrame:
+    """Load dataset from Hugging Face."""
+    dataset = load_dataset(dataset_name, split=split)
+    df = dataset.to_pandas()
+    # rename columns to match expected format
+    df.rename(
+        columns={
+            "ID": "id",
+            "Context": "context",
+            "Question": "question",
+            "GroundtruthAnswer": "output",
+        },
+        inplace=True,
+    )
+
+    df["context"] = df["context"].astype(str)
+    df["context"] = df["context"].apply(filter_context_length)
+    df["task"] = "rag"
+    df["input"] = df.apply(
+        lambda x: f"質問: {x['question']}\n 段落: {x['context']}", axis=1
+    )
 
     return df
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare data for RAG")
-    parser.add_argument("--input_file", required=True, help="Path to input data file")
-    parser.add_argument(
-        "--context_col", default="context", help="Column name for context"
+    parser = argparse.ArgumentParser(
+        description="Convert Excel sheets to RAG-ready JSON format"
     )
     parser.add_argument(
-        "--question_col", default="question", help="Column name for question"
+        "--use_hf_dataset",
+        action="store_true",
+        default=True,
+        help="Use Hugging Face dataset instead of Excel file",
     )
-    parser.add_argument("--answer_col", default="answer", help="Column name for answer")
+    parser.add_argument("--input_file", help="Input Excel file path")
     parser.add_argument(
-        "--max_samples", type=int, default=10000, help="Max rows to process"
+        "--max_samples",
+        type=int,
+        default=10000,
+        help="Maximum samples per sheet (default: 10000)",
     )
-    parser.add_argument(
-        "--task", type=str, default="rag", help="Task name"
-    )
+
     args = parser.parse_args()
+    os.makedirs("data", exist_ok=True)
 
-    if args.input_file.endswith(".json"):
-        df = pd.read_json(args.input_file)
-    elif args.input_file.endswith(".jsonl"):
-        df = pd.read_json(args.input_file, lines=True)
-    elif args.input_file.endswith(".csv"):
-        df = pd.read_csv(args.input_file)
-    elif args.input_file.endswith(".tsv"):
-        df = pd.read_csv(args.input_file, sep="\t")
-    else:
-        raise ValueError("Invalid file format")
-
-    max_samples = args.max_samples
-    context_col = args.context_col
-    question_col = args.question_col
-    answer_col = args.answer_col
-    # os.makedirs("instruction_formated", exist_ok=True)
-    if max_samples > 0:
-        output_df = prepare_data(df, context_col, question_col, answer_col, max_samples, args.task)
-        output_file = os.path.join(
-            "data", os.path.basename(args.input_file).split(".")[0] + ".json"
-        )
-        # output_file ="instruction_formated/" +  os.path.basename(args.input_file).split(".")[0] + ".json"
-        output_df.to_json(output_file, orient="records", force_ascii=False, indent=2)
+    if args.use_hf_dataset:
+        df = read_dataset()
+        output_file = os.path.join("data", "jcrrag.json")
+        df.to_json(output_file, orient="records", force_ascii=False, indent=2)
+        print(f"Success: {output_file} ({len(df)} entries)")
+    elif args.input_file.lower().endswith((".xlsx", ".xls")):
+        sheets = pd.read_excel(args.input_file, sheet_name=None)
+        for sheet_name, df in sheets.items():
+            try:
+                processed = process_sheet(df, args.max_samples)
+                output_file = os.path.join("data", f"{sheet_name}.json")
+                processed.to_json(
+                    output_file, orient="records", force_ascii=False, indent=2
+                )
+                print(
+                    f"Success: {sheet_name} → {output_file} ({len(processed)} entries)"
+                )
+            except ValueError as e:
+                print(f"Skipping {sheet_name}: {str(e)}")
 
 
 if __name__ == "__main__":

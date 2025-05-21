@@ -42,19 +42,17 @@ The RAG systems are evaluated on the following four dimensions:
 ### Installation
 
 ```bash
-git clone  https://github.com/ducalt/jcrrageval.git
+git clone https://github.com/ngocnhq/JCrRAG.git
 cd JCrRAG
 pip install -r requirements.txt
 ```
 
 ### Dataset Preparation
-Download the `xlsx` dataset and run the data preparation script:
+Run the data preparation script to download the data and format input:
 ```bash
-python prepare_data.py \
-  --input_file path/to/data.xlsx \
-  --max_samples 10000 # Maximum samples to process
+python prepare_data.py
 ```
-Processed data will be saved to `./data/`
+Processed data will be saved to `./data/jccrag.json`.
 
 ## Model Evaluation
 
@@ -65,7 +63,6 @@ Generate answers from your RAG system using either local models with vLLM or API
 1.  Generate answers:
 
     ```bash
-    cd gen_answer/
     python gen_answer.py \
        --model_path $MODEL_PATH \
        --api local \
@@ -78,14 +75,13 @@ Generate answers from your RAG system using either local models with vLLM or API
     - `--model_path` (`$MODEL_PATH`): Path to the local Hugging Face model directory or a model identifier from Hugging Face Hub that is compatible with vLLM.
     - `--api`: Must be set to `local` to use vLLM.
     - `--tensor_parallel_size` (`$NUM_GPUS`): The number of GPUs to use for tensor parallelism with vLLM.
-    - `--benchmark_name` (`$BENCHMARK_NAME`): The name of the benchmark dataset (e.g., `Level 1`, `Level 2` or `Level 3`) that was processed by `prepare_data.py`. This usually corresponds to the sub-folder name in `./data/`.
+    - `--benchmark_name` (`$BENCHMARK_NAME`): The name of the benchmark dataset (e.g., `jcrrag`) that was processed by `prepare_data.py`. This usually corresponds to the sub-folder name in `./data/`.
 
 ### API-based Models
 
 1.  Generate answers (OpenAI-compatible API):
 
     ```bash
-    cd gen_answer/
     python gen_answer.py \
       --benchmark_name $BENCHMARK_NAME \
       --model_path $MODEL_NAME \
@@ -96,7 +92,7 @@ Generate answers from your RAG system using either local models with vLLM or API
 
     **Script Parameters for `gen_answer.py` (API-based):**
 
-    - `--benchmark_name` (`$BENCHMARK_NAME`): The name of the benchmark dataset (e.g., `Level 1`, `Level 2` or `Level 3`) that was processed by `prepare_data.py`.
+    - `--benchmark_name` (`$BENCHMARK_NAME`): The name of the benchmark dataset (e.g., `jccrag`) that was processed by `prepare_data.py`.
     - `--model_path` (`$MODEL_NAME`): The model identifier/name as recognized by the API (e.g., `gpt-4o`, `claude-3-opus-20240229`).
     - `--api`: Must be set to `api` to use an external API.
     - `--base-url` (`$API_ENDPOINT`): The base URL of the OpenAI-compatible API endpoint.
@@ -107,7 +103,6 @@ Generate answers from your RAG system using either local models with vLLM or API
 Generate assessment scores for the generated answers using a powerful LLM as a judge (e.g., GPT-4o).
 
 ```bash
-cd judge/
 python gen_judgement.py \
    --model_list $YOUR_MODEL_NAME \
    --judge-models gpt-4o \
@@ -118,7 +113,7 @@ python gen_judgement.py \
 
 - `--model_list` (`$YOUR_MODEL_NAME`): A comma-separated string of model names whose generated answers you want to evaluate. These names should correspond to the output files/folders created by `gen_answer.py`.
 - `--judge-models`: The model(s) to be used as the judge. Currently, `gpt-4o` is supported. You can specify one or more judge models, comma-separated.
-- `--benchmark_name` (`$BENCHMARK_NAME`): The name of the benchmark dataset (e.g., `Level1`, `Level2` or `Level3`) for which the judgements are to be generated.
+- `--benchmark_name` (`$BENCHMARK_NAME`): The name of the benchmark dataset (e.g., `jcrrag`) for which the judgements are to be generated.
 
 ## Demo Results (Leaderboard)
 
@@ -142,5 +137,3 @@ _Note: The 'Average' columns show the average score across all three complexity 
 ## ⚠️ Important Note  
 
 Evaluation via vLLM is limited to models currently supported by vLLM. You can verify compatibility at [vLLM Supported Models](https://docs.vllm.ai/en/latest/models/supported_models.html). For models not supported by vLLM, please load them directly from Hugging Face. Additionally, for newly released models such as Qwen3 (as of May 2025), ensure you update your vLLM library to the latest version to support these models.
-
-
