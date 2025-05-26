@@ -42,7 +42,7 @@ The RAG systems are evaluated on the following four dimensions:
 ### Installation
 
 ```bash
-git clone https://github.com/ducalt/jcrrageval.git
+# git clone this repo (so you have the folder jcrrageval)
 cd jcrrageval
 pip install -r requirements.txt
 ```
